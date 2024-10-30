@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>4 Queens Puzzle</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            font-family: Arial, sans-serif;
+            background-color: #f0f0f0;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .game-container {
+            background: white;
+            padding: 20px;
+            border-radius: 100px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+        }
+
+        .board {
+            display: grid;
+            grid-template-columns: repeat(4, 60px);
+            grid-template-rows: repeat(4, 60px);
+            gap: 2px;
+            background: #34495e;
+            
+            padding: 4px;
+            border-radius: 4px;
+            margin: 20px auto;
+        }
+
+        .cell {
+            width: 60px;
+            height: 60px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 35px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            user-select: none;
+        }
+
+        .white {
+            background-color: #ecf0f1;
+        }
+
+        .black {
+            background-color: #bdc3c7;
+        }
+
+        .queen {
+            color: #e74c3c;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.2);
+        }
+
+        .attacked {
+            position: relative;
+        }
+
+        .attacked::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(231, 76, 60, 0.2);
+            pointer-events: none;
+        }
+
+        .controls {
+            margin-top: 20px;
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            background-color: #3498db;
+            color: white;
+        }
+
+        button:hover {
+            background-color: #2980b9;
+        }
+
+        .status {
+            margin-top: 15px;
+            padding: 10px;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+
+        .success {
+            background-color: #2ecc71;
+            color: white;
+        }
+
+        .error {
+            background-color: #e74c3c;
+            color: white;
+        }
+
+        .queen-count {
+            margin: 15px 0;
+            font-size: 18px;
+            color: #7f8c8d;
+        }
+
+        .rules {
+            margin-top: 20px;
+            color: #7f8c8d;
+            font-size: 14px;
+            max-width: 300px;
+            text-align: left;
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <h1>4 Queens Puzzle</h1>
+        <div class="queen-count">Queens placed: <span id="queenCount">0</span>/4</div>
+        <div class="board" id="board"></div>
+        <div class="controls">
+            <button onclick="resetBoard()">Reset Board</button>
+            <button onclick="checkSolution()">Check Solution</button>
+        </div>
+        <div id="status" class="status"></div>
+        <div class="rules">
+            <p>Rules:</p>
+            <ul>
+                <li>Place exactly 4 queens on the board</li>
+                <li>No two queens can attack each other</li>
+                <li>Queens can move horizontally, vertically, and diagonally</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        let board = Array(4).fill().map(() => Array(4).fill(false));
+        let queenCount = 0;
+
+        function createBoard() {
+            const boardElement = document.getElementById('board');
+            boardElement.innerHTML = '';
+
+            for (let i = 0; i < 4; i++) {
+                for (let j = 0; j < 4; j++) {
+                    const cell = document.createElement('div');
+                    cell.className = `cell ${(i + j) % 2 === 0 ? 'white' : 'black'}`;
+                    cell.dataset.row = i;
+                    cell.dataset.col = j;
+                    cell.addEventListener('click', handleCellClick);
+                    boardElement.appendChild(cell);
+                }
+            }
+        }
+
+        function handleCellClick(event) {
+            const row = parseInt(event.target.dataset.row);
+            const col = parseInt(event.target.dataset.col);
+            const statusElement = document.getElementById('status');
+            statusElement.className = 'status';
+            statusElement.textContent = '';
+
+            if (board[row][col]) {
+                // Remove queen
+                board[row][col] = false;
+                event.target.innerHTML = '';
+                queenCount--;
+            } else if (queenCount < 4) {
+                // Add queen if less than 4 queens are on the board
+                board[row][col] = true;
+                event.target.innerHTML = '♕';
+                event.target.classList.add('queen');
+                queenCount++;
+            }
+
+            document.getElementById('queenCount').textContent = queenCount;
+            updateAttackedCells();
+        }
+
+        function updateAttackedCells() {
+            // Reset all cells
+            const cells = document.querySelectorAll('.cell');
+            cells.forEach(cell => cell.classList.remove('attacked'));
+
+            // Mark attacked cells
+            for (let row = 0; row < 4; row++) {
+                for (let col = 0; col < 4; col++) {
+                    if (board[row][col]) {
+                        markAttackedCells(row, col);
+                    }
+                }
+            }
+        }
+
+        function markAttackedCells(queenRow, queenCol) {
+            // Check all directions
+            const directions = [
+                [-1,-1], [-1,0], [-1,1],
+                [0,-1],          [0,1],
+                [1,-1],  [1,0],  [1,1]
+            ];
+
+            directions.forEach(([dx, dy]) => {
+                let row = queenRow + dx;
+                let col = queenCol + dy;
+
+                while (row >= 0 && row < 4 && col >= 0 && col < 4) {
+                    const cell = document.querySelector(`[data-row="${row}"][data-col="${col}"]`);
+                    if (!board[row][col]) {
+                        cell.classList.add('attacked');
+                    }
+                    row += dx;
+                    col += dy;
+                }
+            });
+        }
+
+        function checkSolution() {
+            const statusElement = document.getElementById('status');
+
+            if (queenCount !== 4) {
+                statusElement.textContent = 'Place exactly 4 queens on the board!';
+                statusElement.className = 'status error';
+                return;
+            }
+
+            // Check for attacks
+            for (let row = 0; row < 4; row++) {
+                for (let col = 0; col < 4; col++) {
+                    if (board[row][col] && isAttacked(row, col)) {
+                        statusElement.textContent = 'Some queens are attacking each other. Try again!';
+                        statusElement.className = 'status error';
+                        return;
+                    }
+                }
+            }
+
+            statusElement.textContent = 'Congratulations! You solved the puzzle!';
+            statusElement.className = 'status success';
+        }
+
+        function isAttacked(row, col) {
+            // Check all directions except the queen's own position
+            for (let i = 0; i < 4; i++) {
+                for (let j = 0; j < 4; j++) {
+                    if (board[i][j] && (i !== row || j !== col)) {
+                        if (i === row || j === col || 
+                            Math.abs(i - row) === Math.abs(j - col)) {
+                            return true;
+                        }
+                    }
+                }
+            }
+            return false;
+        }
+
+        function resetBoard() {
+            board = Array(4).fill().map(() => Array(4).fill(false));
+            queenCount = 0;
+            document.getElementById('queenCount').textContent = queenCount;
+            const statusElement = document.getElementById('status');
+            statusElement.textContent = '';
+            statusElement.className = 'status';
+            const cells = document.querySelectorAll('.cell');
+            cells.forEach(cell => {
+                cell.innerHTML = '';
+                cell.classList.remove('queen', 'attacked');
+            });
+        }
+
+        // Initialize the board when the page loads
+        createBoard();
+    </script>
+</body>
+</html>
